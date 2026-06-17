@@ -1,0 +1,102 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: wms-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    
+
+  inventory-db:
+    image: mysql:8.0
+    container_name: inventory-db
+    environment:
+      MYSQL_DATABASE: inventory_db
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    
+  orders-db:
+    image: mysql:8.0
+    container_name: orders-db
+    environment:
+      MYSQL_DATABASE: orders_db
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3308:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      
+  billing-db:
+    image: mysql:8.0
+    container_name: billing-db
+    environment:
+      MYSQL_DATABASE: billing_db
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3309:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      
+  inventory-service:
+    build: ./inventory-service
+    container_name: inventory-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+        
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://inventory-db:3306/inventory_db?allowPublicKeyRetrieval=true&useSSL=false"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+
+  orders-service:
+    build: ./orders-service
+    container_name: orders-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://orders-db:3306/orders_db?allowPublicKeyRetrieval=true&useSSL=false"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+
+  billing-service:
+    build: ./billing-service
+    container_name: billing-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://billing-db:3306/billing_db?allowPublicKeyRetrieval=true&useSSL=false"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
